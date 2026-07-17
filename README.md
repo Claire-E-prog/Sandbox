@@ -1,8 +1,9 @@
 # Sales Manager Assistant
 
-An Agentforce Employee Agent that answers read-only questions about a logged-in
-sales manager's accounts, opportunities, leads, tasks, events, and the same
-records owned by active direct reports.
+An Agentforce Employee Agent that answers questions about a logged-in sales
+manager's accounts, opportunities, leads, tasks, events, and the same records
+owned by active direct reports. It can also make confirmed, allowlisted field
+updates and create or reassign tasks within the manager's direct team.
 
 ## What is included
 
@@ -10,9 +11,11 @@ records owned by active direct reports.
   `AgentforceEmployeeAgent`.
 - `SalesManagerDataAction`: one allowlisted, read-only Apex action for all
   supported record types.
-- `Sales_Manager_Agent`: permission set granting access to the Apex action.
+- `SalesManagerMutationAction`: a user-mode Apex action for confirmed updates
+  and task assignment.
+- `Sales_Manager_Agent`: permission set granting access to both Apex actions.
 - Apex tests for owner scope, filtering, validation, result limits, and named
-  direct-report resolution.
+  direct-report resolution, plus update and task-assignment tests.
 
 The action supports:
 
@@ -26,16 +29,28 @@ The action supports:
 | Status | Exact Opportunity stage, Lead status, or Task status |
 | Result size | 1–25 records |
 
+Confirmed mutations support:
+
+- allowlisted field updates to Account, Opportunity, Lead, Task, and Event;
+- creating a Task assigned to the manager or an active direct report; and
+- reassigning an existing Task to the manager or an active direct report.
+
 ## Security model
 
-The Employee Agent runs as the logged-in user. The Apex action uses inherited
-sharing and `Database.queryWithBinds(..., AccessLevel.USER_MODE)`, so it enforces:
+The Employee Agent runs as the logged-in user. Both Apex actions use inherited
+sharing. Reads use `Database.queryWithBinds(..., AccessLevel.USER_MODE)`, and
+changes use user-mode DML, so they enforce:
 
 - record sharing;
 - object CRUD;
 - field-level security; and
 - a strict owner allowlist containing only the current user and active users
   whose `ManagerId` is the current user's Id.
+
+Every mutation action declares `require_user_confirmation: True`. Generic record
+updates use per-object field allowlists and cannot change ownership. Task
+assignment resolves the assignee against the current manager and active direct
+reports. Delete operations are not implemented.
 
 `ManagerId` identifies direct reports but does **not** grant record access.
 Configure your role hierarchy, sharing rules, territories, or account/opportunity
@@ -45,7 +60,8 @@ structure. Do not replace the user-mode query with system-mode Apex to work
 around sharing.
 
 The included permission set grants only Apex class access. Managers still need
-their normal read access to the supported objects and fields.
+their normal read/edit/create access to the supported objects and fields,
+including permission to assign Tasks to the selected users.
 
 ## Prerequisites
 
@@ -66,9 +82,12 @@ Replace `my-org` with an authorized org alias.
    sf project deploy start \
      --metadata ApexClass:SalesManagerDataAction \
      --metadata ApexClass:SalesManagerDataActionTest \
+     --metadata ApexClass:SalesManagerMutationAction \
+     --metadata ApexClass:SalesManagerMutationActionTest \
      --metadata PermissionSet:Sales_Manager_Agent \
      --test-level RunSpecifiedTests \
      --tests SalesManagerDataActionTest \
+     --tests SalesManagerMutationActionTest \
      --target-org my-org
    ```
 
@@ -103,8 +122,13 @@ one active direct report:
 - "Summarize Jordan's leads."
 - "Compare our pipeline by owner."
 - "What meetings does my team have today?"
-- "Update this opportunity to Closed Won." (The agent must explain that it is
-  read-only.)
+- "Update this opportunity to Closed Won." (The agent must identify the exact
+  record, show the proposed change, require confirmation, and report the action
+  result.)
+- "Create a follow-up task for Jordan due tomorrow."
+- "Assign this existing task to Priya."
 
 Also verify that inaccessible records and fields never appear, ambiguous names
-prompt for clarification, and broad results disclose when they were truncated.
+prompt for clarification, broad results disclose when they were truncated,
+mutations require confirmation, and failed mutations are never reported as
+successful.

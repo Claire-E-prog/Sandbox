@@ -4,7 +4,11 @@
         <apexClass>SalesManagerDataAction</apexClass>
         <enabled>true</enabled>
     </classAccesses>
-    <description>Allows a logged-in sales manager to run the read-only Agentforce sales data action. Existing object, field, and record access still applies.</description>
+    <classAccesses>
+        <apexClass>SalesManagerMutationAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <description>Allows a logged-in sales manager to run the Agentforce sales data and confirmed mutation actions. Existing object, field, and record access still applies.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Sales Manager Agent</label>
 </PermissionSet>

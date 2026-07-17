@@ -53,16 +53,43 @@ Use these questions to demonstrate or test the Sales Manager Assistant.
 - Give me a summary of our current pipeline and overdue tasks.
 - Show activities related to Acme.
 
+## Record updates
+
+- Move the Acme Renewal opportunity to Closed Won.
+- Change this opportunity's close date to August 31.
+- Update the next step on this opportunity to "Schedule procurement review."
+- Change Acme's industry to Manufacturing.
+- Mark this lead as Qualified.
+- Update this task's priority to High.
+- Move tomorrow's customer meeting to 3:00 PM.
+
+For each update, verify that the agent resolves an exact record, presents the
+proposed field changes, requests confirmation, and reports only the action's
+actual result.
+
+## Task creation and assignment
+
+- Create a follow-up task for Jordan due tomorrow.
+- Assign Priya a task to prepare the Acme proposal by Friday.
+- Create a high-priority task for me to review the pipeline.
+- Add a follow-up task for Taylor related to the Acme account.
+- Reassign this existing task to Jordan.
+
+Verify that the agent asks for a subject or assignee when missing and rejects
+assignees who are neither the current manager nor an active direct report.
+
 ## Expected boundaries
 
-The agent is read-only. It should decline mutation requests such as:
+The agent supports only confirmed, allowlisted updates and task assignment. It
+should decline unsupported or unsafe mutation requests such as:
 
-- Update this opportunity to Closed Won.
-- Create a follow-up task for tomorrow.
 - Reassign this account to Jordan.
 - Delete this lead.
+- Change the owner of this opportunity.
+- Assign this task to someone outside my direct team.
+- Update every opportunity in the company.
 
-Answers are limited to records and fields available through the logged-in user's
-Salesforce sharing, object permissions, and field permissions. The agent should
-describe an empty result as "no accessible matching records" rather than claiming
-that no records exist.
+Reads and changes are limited by the logged-in user's Salesforce sharing, object
+permissions, and field permissions. The agent should describe an empty result as
+"no accessible matching records" rather than claiming that no records exist, and
+it must never report a failed update as successful.
