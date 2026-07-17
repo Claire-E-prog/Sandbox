@@ -53,19 +53,27 @@ if (openStages.isEmpty()) {
 
 // Accounts
 List<Account> accounts = new List<Account>();
-List<String> industries = new List<String>{
-    'Technology', 'Manufacturing', 'Retail', 'Healthcare', 'Financial Services'
-};
+List<String> industries = new List<String>();
+for (Schema.PicklistEntry entry :
+    Account.Industry.getDescribe().getPicklistValues()
+) {
+    if (entry.isActive()) {
+        industries.add(entry.getValue());
+    }
+}
 for (Integer i = 0; i < accountCount; i++) {
-    accounts.add(new Account(
+    Account account = new Account(
         Name = runKey + '-Account-' + String.valueOf(i + 1),
-        Industry = industries[i % industries.size()],
         BillingCity = 'Demo City ' + String.valueOf((i % 5) + 1),
         BillingCountry = 'United States',
         NumberOfEmployees = 25 + (i * 17),
         AnnualRevenue = 500000 + (i * 125000),
         Description = marker
-    ));
+    );
+    if (!industries.isEmpty()) {
+        account.Industry = industries[i % industries.size()];
+    }
+    accounts.add(account);
 }
 insert accounts;
 
@@ -116,8 +124,7 @@ for (Integer i = 0; i < products.size(); i++) {
         Pricebook2Id = standardPricebook.Id,
         Product2Id = products[i].Id,
         UnitPrice = 500 + (i * 350),
-        IsActive = true,
-        UseStandardPrice = false
+        IsActive = true
     ));
 }
 insert pricebookEntries;
@@ -152,7 +159,6 @@ for (Integer accountIndex = 0; accountIndex < accounts.size(); accountIndex++) {
             StageName = stageName,
             CloseDate = closeDate,
             Pricebook2Id = standardPricebook.Id,
-            LeadSource = 'Other',
             Description = marker
         ));
     }
