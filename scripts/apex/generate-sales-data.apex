@@ -38,16 +38,16 @@ void populateCustomFields(SObject record, String runKey, Integer sequence) {
                 }
             }
             if (!activeValues.isEmpty()) {
-                generatedValue = activeValues[(sequence - 1) % activeValues.size()];
+                generatedValue = activeValues[Math.mod(sequence - 1, activeValues.size())];
             }
         } else if (fieldType == Schema.DisplayType.Boolean) {
             generatedValue = false;
         } else if (fieldType == Schema.DisplayType.Date) {
-            generatedValue = Date.today().addDays(-(sequence % 30));
+            generatedValue = Date.today().addDays(-Math.mod(sequence, 30));
         } else if (fieldType == Schema.DisplayType.DateTime) {
-            generatedValue = Datetime.now().addDays(-(sequence % 30));
+            generatedValue = Datetime.now().addDays(-Math.mod(sequence, 30));
         } else if (fieldType == Schema.DisplayType.Time) {
-            generatedValue = Time.newInstance(9 + (sequence % 8), 0, 0, 0);
+            generatedValue = Time.newInstance(9 + Math.mod(sequence, 8), 0, 0, 0);
         } else if (fieldType == Schema.DisplayType.Integer) {
             generatedValue = sequence;
         } else if (fieldType == Schema.DisplayType.Long) {
@@ -63,7 +63,7 @@ void populateCustomFields(SObject record, String runKey, Integer sequence) {
                 '@example.invalid';
         } else if (fieldType == Schema.DisplayType.Phone) {
             generatedValue = '+1 555 010 ' +
-                String.valueOf(1000 + (sequence % 9000));
+                String.valueOf(1000 + Math.mod(sequence, 9000));
         } else if (fieldType == Schema.DisplayType.Url) {
             generatedValue = 'https://example.invalid/synthetic/' +
                 String.valueOf(sequence);
@@ -160,14 +160,14 @@ for (Schema.PicklistEntry entry :
 for (Integer i = 0; i < accountCount; i++) {
     Account account = new Account(
         Name = runKey + '-Account-' + String.valueOf(i + 1),
-        BillingCity = 'Demo City ' + String.valueOf((i % 5) + 1),
+        BillingCity = 'Demo City ' + String.valueOf(Math.mod(i, 5) + 1),
         BillingCountry = 'United States',
         NumberOfEmployees = 25 + (i * 17),
         AnnualRevenue = 500000 + (i * 125000),
         Description = marker
     );
     if (!industries.isEmpty()) {
-        account.Industry = industries[i % industries.size()];
+        account.Industry = industries[Math.mod(i, industries.size())];
     }
     populateCustomFields(account, runKey, i + 1);
     accounts.add(account);
@@ -241,19 +241,19 @@ for (Integer accountIndex = 0; accountIndex < accounts.size(); accountIndex++) {
         opportunityIndex++
     ) {
         Integer sequence = (accountIndex * opportunitiesPerAccount) + opportunityIndex;
-        Integer outcomeBucket = sequence % 10;
+        Integer outcomeBucket = Math.mod(sequence, 10);
         String stageName;
         Date closeDate;
 
         if (outcomeBucket < 2 && !wonStages.isEmpty()) {
-            stageName = wonStages[sequence % wonStages.size()];
-            closeDate = today.addDays(-7 - (sequence % 90));
+            stageName = wonStages[Math.mod(sequence, wonStages.size())];
+            closeDate = today.addDays(-7 - Math.mod(sequence, 90));
         } else if (outcomeBucket < 4 && !lostStages.isEmpty()) {
-            stageName = lostStages[sequence % lostStages.size()];
-            closeDate = today.addDays(-7 - (sequence % 90));
+            stageName = lostStages[Math.mod(sequence, lostStages.size())];
+            closeDate = today.addDays(-7 - Math.mod(sequence, 90));
         } else {
-            stageName = openStages[sequence % openStages.size()];
-            closeDate = today.addDays(14 + (sequence % 120));
+            stageName = openStages[Math.mod(sequence, openStages.size())];
+            closeDate = today.addDays(14 + Math.mod(sequence, 120));
         }
 
         Opportunity opportunity = new Opportunity(
@@ -274,11 +274,11 @@ insert opportunities;
 // from its line items.
 List<OpportunityLineItem> lineItems = new List<OpportunityLineItem>();
 for (Integer i = 0; i < opportunities.size(); i++) {
-    PricebookEntry entry = pricebookEntries[i % pricebookEntries.size()];
+    PricebookEntry entry = pricebookEntries[Math.mod(i, pricebookEntries.size())];
     OpportunityLineItem lineItem = new OpportunityLineItem(
         OpportunityId = opportunities[i].Id,
         PricebookEntryId = entry.Id,
-        Quantity = 1 + (i % 8),
+        Quantity = 1 + Math.mod(i, 8),
         UnitPrice = entry.UnitPrice,
         Description = marker
     );
