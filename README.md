@@ -1,26 +1,70 @@
-# Sandbox
-Sandbox repo for trying out cursor
+# Salesforce synthetic sales data
 
-## Salesforce synthetic sales data
+This Salesforce DX project generates a manufacturing-oriented sales dataset in
+a Developer Edition or sandbox org.
 
-The anonymous Apex scripts in [`scripts/apex`](scripts/apex) generate and
-remove a sample sales pipeline built from standard Salesforce objects:
+## Structure
 
-- Accounts and contacts
-- Leads
-- Products and standard price book entries
-- Open, won, and lost opportunities
-- Opportunity line items
-- Tasks and calendar events
+Reusable logic lives in deployable Apex classes:
 
-Authenticate a Developer Edition or sandbox org, then run:
+- `SyntheticDataConfig` centralizes record counts and scenario values.
+- Object factories generate Accounts and Contacts, Leads, Products,
+  Opportunities and line items, and Activities.
+- `SyntheticSchemaValueFactory` discovers writable custom fields and active
+  picklist values.
+- `SyntheticOwnerResolver` validates configured owners.
+- `SyntheticSalesDataService` orchestrates a complete transactional run.
+- `SyntheticSalesDataCleanup` removes one run or all generated runs.
 
-1. Add the exact Salesforce usernames of the intended record owners to the
-   `ownerUsernames` list near the top of `generate-sales-data.apex`.
-2. Ensure the running user can assign records to those users and that each
-   owner is active and licensed to own Accounts, Contacts, Leads,
-   Opportunities, Tasks, and Events.
-3. Execute the generator:
+Small anonymous Apex files under `scripts/apex` serve as entry points:
+
+- `generate-sales-data.apex` generates the complete dataset.
+- `generate-accounts-contacts.apex` isolates account/contact generation.
+- `generate-leads.apex` isolates Lead generation.
+- `generate-sales-pipeline.apex` generates Accounts, Contacts, Products,
+  Opportunities, and line items.
+- `generate-activities.apex` generates a small related dataset for debugging
+  Tasks and Events.
+- `cleanup-sales-data.apex` removes generated data.
+
+## Customize the manufacturing scenario
+
+Edit `SyntheticDataConfig.cls` to change reusable scenario defaults:
+
+- Manufacturer and plant names
+- Cities and preferred Industry values
+- Buyer and operations job titles
+- Product names, SKUs, and prices
+- Opportunity themes, quantities, and sales-cycle lengths
+- Company revenue and employee ranges
+- Activity subjects and record counts
+
+For a one-off run, override config values in an entry script:
+
+```apex
+SyntheticDataConfig config = SyntheticDataConfig.manufacturing();
+config.ownerUsernames = new List<String>{
+  'rep.one@example.com',
+  'rep.two@example.com'
+};
+config.accountCount = 30;
+config.minimumAnnualRevenue = 10000000;
+
+SyntheticSalesDataService.generateAll(config);
+```
+
+Preferred values are used only when they are active in the target org. The
+factories otherwise fall back to active org picklist values.
+
+## Deploy and run
+
+Deploy the classes:
+
+```bash
+sf project deploy start --source-dir force-app --target-org <org-alias>
+```
+
+Add exact Salesforce usernames to the selected entry script, then execute it:
 
 ```bash
 sf apex run \
@@ -28,24 +72,20 @@ sf apex run \
   --target-org <org-alias>
 ```
 
-The generator uses Apex schema describe information at runtime. It discovers
-the org's active Opportunity stages and writable custom fields on every object
-it creates. Active custom picklist values are distributed across records;
-common custom field types receive deterministic synthetic values. Formula,
-auto-number, defaulted, and read-only fields are left to Salesforce. Optional
-unsupported fields, such as lookups, are logged and skipped; a required
-unsupported field stops the transaction with its API name so an org-specific
-value can be added safely.
+The owners must be active and licensed to own the generated record types. The
+running user must also be allowed to assign records to them.
 
-All record names receive a unique `SYNTH-...` run key, and execution is refused
-outside Developer Edition and sandbox orgs. Edit the count variables at the top
-of the file to change the data volume. Accounts, Contacts, Leads,
-Opportunities, Tasks, and Events are assigned across the configured users in
-round-robin order. Activities are related to generated Contacts, Leads, and
-Opportunities. The script stops before inserting data if a username is missing,
-duplicated, or belongs to an inactive user.
+Run an isolated entry script while debugging a factory:
 
-Remove all generated records with:
+```bash
+sf apex run \
+  --file scripts/apex/generate-leads.apex \
+  --target-org <org-alias>
+```
+
+## Cleanup
+
+Remove every generated run:
 
 ```bash
 sf apex run \
@@ -53,10 +93,34 @@ sf apex run \
   --target-org <org-alias>
 ```
 
-The cleanup script moves matching records to the recycle bin. Its pattern can
-be narrowed to a single run key before execution.
+To remove one run, call:
 
-Validation rules, dependent-picklist relationships, flows, triggers, and
-semantic requirements cannot be inferred reliably from describe metadata and
-can still prevent inserts. Add explicit constructor values when an org requires
-them.
+```apex
+SyntheticSalesDataCleanup.cleanupRun('SYNTH-20260717-001122123');
+```
+
+Generated names and product codes start with a unique `SYNTH-...` run key.
+Cleanup moves records to the recycle bin.
+
+## Custom schema behavior
+
+Factories inspect writable custom fields at runtime. Active custom picklist
+values and common scalar field types receive deterministic values. Formula,
+auto-number, defaulted, and read-only fields are left to Salesforce. Optional
+unsupported fields such as lookups are logged and skipped; required unsupported
+fields stop and roll back a complete run.
+
+Validation rules, dependent picklists, flows, triggers, and semantic
+requirements cannot be inferred reliably from describe metadata. Add explicit
+field values in the relevant object factory when the target org requires them.
+
+## Tests
+
+After deployment, run:
+
+```bash
+sf apex run test \
+  --class-names SyntheticSalesDataServiceTest \
+  --result-format human \
+  --target-org <org-alias>
+```
