@@ -125,10 +125,9 @@ Integer productCount = 5;
 
 // Add the exact Salesforce usernames that should own generated records.
 // Usernames are globally unique and safer than matching users by name or email.
-List<String> ownerUsernames = new List<String>{
-  // 'sales.rep.one@example.com',
-  // 'sales.rep.two@example.com'
-};
+List<String> ownerUsernames = new List<String>{};
+// 'sales.rep.one@example.com',
+// 'sales.rep.two@example.com'
 
 // Developer Edition orgs are not reported as sandboxes, so allow both.
 Organization orgInfo = [
