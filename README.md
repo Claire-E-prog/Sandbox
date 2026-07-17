@@ -19,10 +19,18 @@ sf apex run \
   --target-org <org-alias>
 ```
 
-The generator discovers the org's active Opportunity stage names, prefixes all
-record names with a unique `SYNTH-...` run key, and refuses to run in other org
-types. Edit the four count variables at the top of the file to change the data
-volume.
+The generator uses Apex schema describe information at runtime. It discovers
+the org's active Opportunity stages and writable custom fields on every object
+it creates. Active custom picklist values are distributed across records;
+common custom field types receive deterministic synthetic values. Formula,
+auto-number, defaulted, and read-only fields are left to Salesforce. Optional
+unsupported fields, such as lookups, are logged and skipped; a required
+unsupported field stops the transaction with its API name so an org-specific
+value can be added safely.
+
+All record names receive a unique `SYNTH-...` run key, and execution is refused
+outside Developer Edition and sandbox orgs. Edit the four count variables at
+the top of the file to change the data volume.
 
 Remove all generated records with:
 
@@ -35,6 +43,7 @@ sf apex run \
 The cleanup script moves matching records to the recycle bin. Its pattern can
 be narrowed to a single run key before execution.
 
-Org-specific validation rules, required custom fields, flows, and triggers can
-still prevent inserts. Extend the record constructors when the target org
-requires additional values.
+Validation rules, dependent-picklist relationships, flows, triggers, and
+semantic requirements cannot be inferred reliably from describe metadata and
+can still prevent inserts. Add explicit constructor values when an org requires
+them.
