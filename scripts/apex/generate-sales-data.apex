@@ -463,8 +463,8 @@ for (Integer i = 0; i < taskCount; i++) {
     Description = marker
   );
 
-  Boolean useLead = !leads.isEmpty() &&
-    (contacts.isEmpty() || Math.mod(i, 2) == 1);
+  Boolean useLead =
+    !leads.isEmpty() && (contacts.isEmpty() || Math.mod(i, 2) == 1);
   if (useLead) {
     task.WhoId = leads[Math.mod(i, leads.size())].Id;
   } else if (!contacts.isEmpty()) {
@@ -499,8 +499,8 @@ for (Integer i = 0; i < eventCount; i++) {
     Description = marker
   );
 
-  Boolean useLead = !leads.isEmpty() &&
-    (contacts.isEmpty() || Math.mod(i, 2) == 1);
+  Boolean useLead =
+    !leads.isEmpty() && (contacts.isEmpty() || Math.mod(i, 2) == 1);
   if (useLead) {
     event.WhoId = leads[Math.mod(i, leads.size())].Id;
   } else if (!contacts.isEmpty()) {
