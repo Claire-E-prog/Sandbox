@@ -131,7 +131,7 @@ subagent record_changes:
 
    actions:
       change_sales_record:
-         description: "Updates allowlisted fields, creates a task, or assigns an existing task. Every invocation requires user confirmation."
+         description: "Updates allowlisted fields on team-owned records, creates a task, or assigns a team-owned task. Every invocation requires user confirmation."
          label: "Change Sales Manager Record"
          require_user_confirmation: True
          include_in_progress_indicator: True
@@ -204,6 +204,7 @@ subagent record_changes:
    reasoning:
       instructions: |
          Make only the change the user explicitly requested. Every change must use change_sales_record and receive platform confirmation.
+         Updates and existing-task assignments are limited to records owned by the current manager or an active direct report.
          Before requesting confirmation, restate the record, fields, new values, and task assignee clearly.
          Never infer a record Id from a name. If an exact Id is not already grounded in retrieved action output, use lookup_record first.
          UPDATE_RECORD supports these fields only:

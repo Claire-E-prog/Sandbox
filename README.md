@@ -31,7 +31,8 @@ The action supports:
 
 Confirmed mutations support:
 
-- allowlisted field updates to Account, Opportunity, Lead, Task, and Event;
+- allowlisted field updates to team-owned Account, Opportunity, Lead, Task, and
+  Event records;
 - creating a Task assigned to the manager or an active direct report; and
 - reassigning an existing Task to the manager or an active direct report.
 
@@ -50,7 +51,8 @@ changes use user-mode DML, so they enforce:
 Every mutation action declares `require_user_confirmation: True`. Generic record
 updates use per-object field allowlists and cannot change ownership. Task
 assignment resolves the assignee against the current manager and active direct
-reports. Delete operations are not implemented.
+reports. Existing-record changes additionally verify that the owner is the
+manager or an active direct report. Delete operations are not implemented.
 
 `ManagerId` identifies direct reports but does **not** grant record access.
 Configure your role hierarchy, sharing rules, territories, or account/opportunity

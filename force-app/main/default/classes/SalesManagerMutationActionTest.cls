@@ -34,6 +34,19 @@ private class SalesManagerMutationActionTest {
       TimeZoneSidKey = 'America/Los_Angeles',
       UserName = 'mutation.report.' + uniqueValue + '@example.test'
     );
+    User outsideSeller = new User(
+      Alias = 'mutout',
+      Email = 'mutation.outside.' + uniqueValue + '@example.test',
+      EmailEncodingKey = 'UTF-8',
+      FirstName = 'Outside',
+      LastName = 'Outside Seller',
+      LanguageLocaleKey = 'en_US',
+      LocaleSidKey = 'en_US',
+      ProfileId = standardProfile.Id,
+      TimeZoneSidKey = 'America/Los_Angeles',
+      UserName = 'mutation.outside.' + uniqueValue + '@example.test'
+    );
+    insert outsideSeller;
 
     System.runAs(manager) {
       insert new Account(
@@ -42,6 +55,10 @@ private class SalesManagerMutationActionTest {
         OwnerId = manager.Id
       );
     }
+    insert new Account(
+      Name = 'Outside Team Account',
+      OwnerId = outsideSeller.Id
+    );
   }
 
   @IsTest
@@ -190,6 +207,12 @@ private class SalesManagerMutationActionTest {
       WHERE Name = 'Mutation Test Account'
       LIMIT 1
     ];
+    Account outsideAccount = [
+      SELECT Id
+      FROM Account
+      WHERE Name = 'Outside Team Account'
+      LIMIT 1
+    ];
     System.runAs(manager) {
       SalesManagerMutationAction.Request disallowedUpdate = new SalesManagerMutationAction.Request();
       disallowedUpdate.operation = 'UPDATE_RECORD';
@@ -201,11 +224,17 @@ private class SalesManagerMutationActionTest {
       unknownAssignee.subject = 'Should not be created';
       unknownAssignee.assigneeName = 'Not A Team Member';
 
+      SalesManagerMutationAction.Request outsideTeamUpdate = new SalesManagerMutationAction.Request();
+      outsideTeamUpdate.operation = 'UPDATE_RECORD';
+      outsideTeamUpdate.recordId = outsideAccount.Id;
+      outsideTeamUpdate.updatesJson = '{"Description":"Must not update"}';
+
       Test.startTest();
       List<SalesManagerMutationAction.Response> responses = SalesManagerMutationAction.changeRecords(
         new List<SalesManagerMutationAction.Request>{
           disallowedUpdate,
-          unknownAssignee
+          unknownAssignee,
+          outsideTeamUpdate
         }
       );
       Test.stopTest();
@@ -214,6 +243,12 @@ private class SalesManagerMutationActionTest {
       System.assert(responses[0].message.contains('not allowed'));
       System.assertEquals(false, responses[1].success);
       System.assert(responses[1].message.contains('No active direct report'));
+      System.assertEquals(false, responses[2].success);
+      System.assertEquals(
+        null,
+        [SELECT Description FROM Account WHERE Id = :outsideAccount.Id]
+        .Description
+      );
     }
   }
 }

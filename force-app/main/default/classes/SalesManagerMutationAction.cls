@@ -113,7 +113,7 @@ public inherited sharing class SalesManagerMutationAction {
     }
 
     if (operation == 'UPDATE_RECORD') {
-      return updateRecord(request);
+      return updateRecord(request, team);
     }
     if (operation == 'CREATE_TASK') {
       return createTask(request, team);
@@ -121,7 +121,7 @@ public inherited sharing class SalesManagerMutationAction {
     return assignTask(request, team);
   }
 
-  private static Response updateRecord(Request request) {
+  private static Response updateRecord(Request request, TeamContext team) {
     Id recordId = parseId(request.recordId, 'Record Id');
     String objectName = recordId.getSObjectType().getDescribe().getName();
     if (!ALLOWED_FIELDS.containsKey(objectName)) {
@@ -129,6 +129,7 @@ public inherited sharing class SalesManagerMutationAction {
         'Only Account, Opportunity, Lead, Task, and Event records can be updated.'
       );
     }
+    verifyTeamOwnedRecord(recordId, objectName, team);
     if (String.isBlank(request.updatesJson)) {
       throw new SalesManagerMutationException(
         'Updates JSON is required for UPDATE_RECORD.'
@@ -243,6 +244,7 @@ public inherited sharing class SalesManagerMutationAction {
         'ASSIGN_TASK requires a Task record Id.'
       );
     }
+    verifyTeamOwnedRecord(taskId, 'Task', team);
     Id assigneeId = resolveAssigneeId(request.assigneeName, team);
     Task taskToAssign = new Task(Id = taskId, OwnerId = assigneeId);
     update as user taskToAssign;
@@ -290,6 +292,29 @@ public inherited sharing class SalesManagerMutationAction {
           '" is invalid for field ' +
           fieldDescription.getName() +
           '.'
+      );
+    }
+  }
+
+  private static void verifyTeamOwnedRecord(
+    Id recordId,
+    String objectName,
+    TeamContext team
+  ) {
+    List<SObject> records = Database.queryWithBinds(
+      'SELECT OwnerId FROM ' + objectName + ' WHERE Id = :recordId LIMIT 1',
+      new Map<String, Object>{ 'recordId' => recordId },
+      AccessLevel.USER_MODE
+    );
+    if (records.isEmpty()) {
+      throw new SalesManagerMutationException(
+        'The record was not found or is not accessible.'
+      );
+    }
+    Id ownerId = (Id) records[0].get('OwnerId');
+    if (!team.namesById.containsKey(ownerId)) {
+      throw new SalesManagerMutationException(
+        'The record must be owned by the current manager or an active direct report.'
       );
     }
   }
