@@ -302,13 +302,13 @@ Set<String> activeLeadStatusValues = new Set<String>(
 );
 List<String> leadStatuses = new List<String>();
 for (LeadStatus status : [
-  SELECT MasterLabel
+  SELECT ApiName
   FROM LeadStatus
   WHERE IsConverted = FALSE
   ORDER BY SortOrder
 ]) {
-  if (activeLeadStatusValues.contains(status.MasterLabel)) {
-    leadStatuses.add(status.MasterLabel);
+  if (activeLeadStatusValues.contains(status.ApiName)) {
+    leadStatuses.add(status.ApiName);
   }
 }
 if (leadStatuses.isEmpty()) {
