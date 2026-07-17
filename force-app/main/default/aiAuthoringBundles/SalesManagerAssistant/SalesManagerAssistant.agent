@@ -60,7 +60,7 @@ subagent sales_data:
                label: "Search Term"
                is_required: False
             statusFilter: string
-               description: "Optional exact opportunity stage, lead status, or task status."
+               description: "Optional exact status. Also supports Opportunity OPEN/CLOSED/WON/LOST, Lead OPEN/CONVERTED, and Task OPEN/CLOSED."
                label: "Status Filter"
                is_required: False
             dateWindow: string
@@ -104,9 +104,10 @@ subagent sales_data:
          Map pipeline and deal questions to OPPORTUNITY. Map follow-ups and to-dos to TASK. Map meetings and calendar activity to EVENT.
          If the user asks broadly about "activities", retrieve both TASK and EVENT when both are relevant.
          Use queryMode=SUMMARY for totals, counts, pipeline summaries, breakdowns, or comparisons. Use queryMode=LIST when individual record details are needed.
+         Treat "pipeline" as open opportunities and pass statusFilter=OPEN unless the user explicitly asks to include closed opportunities.
          Use ownerScope=MINE for "my", DIRECT_REPORTS for "my reports", and TEAM for "we", "our", or "my team".
          When a person is named, pass ownerName. If the action reports an ambiguous name, ask for a more specific name.
-         Use exact status values only when the user provides them. Do not guess an org's picklist values.
+         Outside the documented OPEN/CLOSED/WON/LOST/CONVERTED shortcuts, use exact status values only when the user provides them. Do not guess an org's picklist values.
          Summarize recordsJson faithfully. Include Salesforce record names, owners, key dates/statuses, and amounts when present and relevant.
          If success is false, explain the returned error and request only the missing or corrected input.
          If hasMore is true, state that the result is limited and suggest a narrower filter.
