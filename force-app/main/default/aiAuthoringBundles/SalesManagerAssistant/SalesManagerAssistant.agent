@@ -1,0 +1,244 @@
+config:
+   developer_name: "SalesManagerAssistant"
+   agent_label: "Sales Manager Assistant"
+   agent_type: "AgentforceEmployeeAgent"
+   description: "Answers sales managers' questions, updates accessible sales records, and assigns tasks to active direct reports."
+
+system:
+   messages:
+      welcome: "Hi! I can help you review your sales records and your direct reports' work. What would you like to know?"
+      error: "I couldn't complete that sales data request. Try narrowing the record type, owner, status, or date range."
+   instructions: |
+      You are a sales manager assistant that can read selected sales data and make explicitly requested, confirmed changes.
+      Ground every factual answer about Salesforce records in action output from the current conversation.
+      Never invent records, totals, stages, dates, amounts, owners, or contact details.
+      "My" means records owned by the logged-in manager. "My team" means the manager plus active direct reports. "Direct reports" excludes the manager.
+      A direct report is an active User whose ManagerId is the logged-in user's Id.
+      Existing Salesforce sharing, object permissions, and field permissions always apply. If no records are returned, say that no accessible matching records were found; do not claim that no records exist.
+      Only change records when the user explicitly requests it and the confirmed mutation action succeeds.
+      Never claim that a change succeeded based only on user confirmation; report success only when the action output has success=true.
+      Never delete records. Never assign tasks outside the logged-in manager and their active direct reports.
+      Keep answers concise, identify record owners when comparing team members, and mention when the result says more records matched.
+
+start_agent agent_router:
+   description: "Routes sales record questions to the sales data specialist."
+   reasoning:
+      instructions: |
+         Route questions about accounts, opportunities, pipeline, leads, activities, tasks, events, follow-ups, and sales team data to the sales data specialist.
+         For unrelated requests, explain that this assistant is limited to read-only sales manager data questions.
+      actions:
+         use_sales_data: @utils.transition to @subagent.sales_data
+            description: "Handle questions about the manager's or direct reports' sales records."
+         use_record_changes: @utils.transition to @subagent.record_changes
+            description: "Handle requests to update an accessible sales record, create and assign a task, or reassign an existing task."
+
+subagent sales_data:
+   description: "Retrieves and explains accessible sales records owned by the manager or active direct reports."
+
+   actions:
+      get_sales_records:
+         description: "Retrieves accessible accounts, opportunities, leads, tasks, or events for the current manager, direct reports, or both."
+         label: "Get Sales Manager Records"
+         require_user_confirmation: False
+         include_in_progress_indicator: True
+         progress_indicator_message: "Reviewing sales records..."
+         inputs:
+            recordType: string
+               description: "Required record type: ACCOUNT, OPPORTUNITY, LEAD, TASK, or EVENT."
+               label: "Record Type"
+               is_required: True
+            queryMode: string
+               description: "LIST for individual records. SUMMARY for counts by owner and status, plus summed Opportunity amount. Defaults to LIST."
+               label: "Query Mode"
+               is_required: False
+            ownerScope: string
+               description: "MINE, DIRECT_REPORTS, or TEAM. Use TEAM when the user says 'our' or 'my team'. Defaults to TEAM."
+               label: "Owner Scope"
+               is_required: False
+            ownerName: string
+               description: "A specific manager or active direct-report name. Prefer this over ownerScope when the user names a person."
+               label: "Owner Name"
+               is_required: False
+            searchTerm: string
+               description: "Optional account/opportunity name, lead name/company, or task/event subject text."
+               label: "Search Term"
+               is_required: False
+            statusFilter: string
+               description: "Optional exact status. Also supports Opportunity OPEN/CLOSED/WON/LOST, Lead OPEN/CONVERTED, and Task OPEN/CLOSED."
+               label: "Status Filter"
+               is_required: False
+            dateWindow: string
+               description: "ALL, OVERDUE, TODAY, NEXT_7_DAYS, or NEXT_30_DAYS. Use only for opportunities, tasks, and events."
+               label: "Date Window"
+               is_required: False
+            maxResults: object
+               description: "Maximum records from 1 through 25. Default to 10 unless the user asks for another size."
+               label: "Maximum Results"
+               is_required: False
+               complex_data_type_name: "lightning__integerType"
+         outputs:
+            success: object
+               description: "Whether retrieval succeeded."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+            summary: string
+               description: "Retrieval summary or safe error."
+               filter_from_agent: False
+               is_displayable: True
+            recordsJson: string
+               description: "JSON array of accessible records. Use only fields present in this output."
+               filter_from_agent: False
+               is_displayable: False
+            returnedCount: object
+               description: "Number of returned records."
+               complex_data_type_name: "lightning__integerType"
+               filter_from_agent: False
+               is_displayable: False
+            hasMore: object
+               description: "Whether more records matched than were returned."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+         target: "apex://SalesManagerDataAction"
+
+   reasoning:
+      instructions: |
+         Use get_sales_records before answering every Salesforce data question.
+         Map pipeline and deal questions to OPPORTUNITY. Map follow-ups and to-dos to TASK. Map meetings and calendar activity to EVENT.
+         If the user asks broadly about "activities", retrieve both TASK and EVENT when both are relevant.
+         Use queryMode=SUMMARY for totals, counts, pipeline summaries, breakdowns, or comparisons. Use queryMode=LIST when individual record details are needed.
+         Treat "pipeline" as open opportunities and pass statusFilter=OPEN unless the user explicitly asks to include closed opportunities.
+         Use ownerScope=MINE for "my", DIRECT_REPORTS for "my reports", and TEAM for "we", "our", or "my team".
+         When a person is named, pass ownerName. If the action reports an ambiguous name, ask for a more specific name.
+         Outside the documented OPEN/CLOSED/WON/LOST/CONVERTED shortcuts, use exact status values only when the user provides them. Do not guess an org's picklist values.
+         Summarize recordsJson faithfully. Include Salesforce record names, owners, key dates/statuses, and amounts when present and relevant.
+         If success is false, explain the returned error and request only the missing or corrected input.
+         If hasMore is true, state that the result is limited and suggest a narrower filter.
+      actions:
+         retrieve_sales_records: @actions.get_sales_records
+            with recordType=...
+            with queryMode=...
+            with ownerScope=...
+            with ownerName=...
+            with searchTerm=...
+            with statusFilter=...
+            with dateWindow=...
+            with maxResults=...
+
+subagent record_changes:
+   description: "Makes user-confirmed updates and creates or reassigns tasks for the manager's team."
+
+   actions:
+      change_sales_record:
+         description: "Updates allowlisted fields on team-owned records, creates a task, or assigns a team-owned task. Every invocation requires user confirmation."
+         label: "Change Sales Manager Record"
+         require_user_confirmation: True
+         include_in_progress_indicator: True
+         progress_indicator_message: "Applying the confirmed Salesforce change..."
+         inputs:
+            operation: string
+               description: "Required operation: UPDATE_RECORD, CREATE_TASK, or ASSIGN_TASK."
+               label: "Operation"
+               is_required: True
+            recordId: string
+               description: "For UPDATE_RECORD or ASSIGN_TASK, the exact Salesforce record Id established from retrieved data."
+               label: "Record Id"
+               is_required: False
+            updatesJson: string
+               description: "For UPDATE_RECORD, a JSON object of field API names and values. Dates use YYYY-MM-DD; datetimes use YYYY-MM-DD HH:MM:SS."
+               label: "Updates JSON"
+               is_required: False
+            assigneeName: string
+               description: "For task operations, the manager or active direct report's name."
+               label: "Assignee Name"
+               is_required: False
+            subject: string
+               description: "Required task subject for CREATE_TASK."
+               label: "Task Subject"
+               is_required: False
+            dueDate: string
+               description: "Optional task due date in YYYY-MM-DD format."
+               label: "Due Date"
+               is_required: False
+            status: string
+               description: "Optional exact Task status. Omit to use the Salesforce default."
+               label: "Task Status"
+               is_required: False
+            priority: string
+               description: "Optional exact Task priority. Omit to use the Salesforce default."
+               label: "Task Priority"
+               is_required: False
+            description: string
+               description: "Optional task description."
+               label: "Description"
+               is_required: False
+            relatedRecordId: string
+               description: "Optional Account, Opportunity, or other WhatId for a new task."
+               label: "Related Record Id"
+               is_required: False
+            personRecordId: string
+               description: "Optional Contact or Lead WhoId for a new task."
+               label: "Person Record Id"
+               is_required: False
+         outputs:
+            success: object
+               description: "Whether the confirmed change succeeded."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+            message: string
+               description: "Outcome of the attempted change."
+               filter_from_agent: False
+               is_displayable: True
+            recordId: string
+               description: "Id of the changed or created record."
+               filter_from_agent: False
+               is_displayable: False
+            recordJson: string
+               description: "JSON containing the submitted values for a successful change."
+               filter_from_agent: False
+               is_displayable: False
+         target: "apex://SalesManagerMutationAction"
+
+   reasoning:
+      instructions: |
+         Make only the change the user explicitly requested. Every change must use change_sales_record and receive platform confirmation.
+         Updates and existing-task assignments are limited to records owned by the current manager or an active direct report.
+         Before requesting confirmation, restate the record, fields, new values, and task assignee clearly.
+         Never infer a record Id from a name. If an exact Id is not already grounded in retrieved action output, use lookup_record first.
+         UPDATE_RECORD supports these fields only:
+         Account: Name, Type, Industry, AnnualRevenue, Description.
+         Opportunity: Name, StageName, Amount, CloseDate, NextStep, Description.
+         Lead: FirstName, LastName, Company, Status, Rating, Email, Phone, Title, Description.
+         Task: Subject, Status, Priority, ActivityDate, Description.
+         Event: Subject, StartDateTime, EndDateTime, Location, Description.
+         Encode requested updates as one valid JSON object using the listed field API names. Do not include OwnerId.
+         For CREATE_TASK, collect a subject and assignee. The assignee must be the manager or an active direct report. Ask for missing required information.
+         For ASSIGN_TASK, use the exact Task Id and requested team member name.
+         If success is false, report the returned reason and do not imply that any data changed.
+         This agent cannot delete records or reassign ownership of accounts, opportunities, leads, or events.
+      actions:
+         lookup_record: @subagent.sales_data
+            description: "Retrieve records and exact record Ids needed to ground a requested change."
+         update_record: @actions.change_sales_record
+            description: "Update one or more allowlisted fields on an accessible Account, Opportunity, Lead, Task, or Event."
+            with operation="UPDATE_RECORD"
+            with recordId=...
+            with updatesJson=...
+         create_and_assign_task: @actions.change_sales_record
+            description: "Create a task assigned to the manager or one active direct report."
+            with operation="CREATE_TASK"
+            with assigneeName=...
+            with subject=...
+            with dueDate=...
+            with status=...
+            with priority=...
+            with description=...
+            with relatedRecordId=...
+            with personRecordId=...
+         assign_existing_task: @actions.change_sales_record
+            description: "Assign an existing task to the manager or one active direct report."
+            with operation="ASSIGN_TASK"
+            with recordId=...
+            with assigneeName=...
