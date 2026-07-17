@@ -7,16 +7,19 @@ The anonymous Apex scripts in [`scripts/apex`](scripts/apex) generate and
 remove a sample sales pipeline built from standard Salesforce objects:
 
 - Accounts and contacts
+- Leads
 - Products and standard price book entries
 - Open, won, and lost opportunities
 - Opportunity line items
+- Tasks and calendar events
 
 Authenticate a Developer Edition or sandbox org, then run:
 
 1. Add the exact Salesforce usernames of the intended record owners to the
    `ownerUsernames` list near the top of `generate-sales-data.apex`.
 2. Ensure the running user can assign records to those users and that each
-   owner is active and licensed to own Accounts, Contacts, and Opportunities.
+   owner is active and licensed to own Accounts, Contacts, Leads,
+   Opportunities, Tasks, and Events.
 3. Execute the generator:
 
 ```bash
@@ -35,11 +38,12 @@ unsupported field stops the transaction with its API name so an org-specific
 value can be added safely.
 
 All record names receive a unique `SYNTH-...` run key, and execution is refused
-outside Developer Edition and sandbox orgs. Edit the four count variables at
-the top of the file to change the data volume. Accounts, Contacts, and
-Opportunities are assigned across the configured users in round-robin order.
-The script stops before inserting data if a username is missing, duplicated, or
-belongs to an inactive user.
+outside Developer Edition and sandbox orgs. Edit the count variables at the top
+of the file to change the data volume. Accounts, Contacts, Leads,
+Opportunities, Tasks, and Events are assigned across the configured users in
+round-robin order. Activities are related to generated Contacts, Leads, and
+Opportunities. The script stops before inserting data if a username is missing,
+duplicated, or belongs to an inactive user.
 
 Remove all generated records with:
 

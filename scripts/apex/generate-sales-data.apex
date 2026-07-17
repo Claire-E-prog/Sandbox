@@ -118,10 +118,25 @@ void populateCustomFields(SObject record, String runKey, Integer sequence) {
   }
 }
 
+List<String> activePicklistValues(Schema.SObjectField fieldToken) {
+  List<String> values = new List<String>();
+  for (
+    Schema.PicklistEntry option : fieldToken.getDescribe().getPicklistValues()
+  ) {
+    if (option.isActive()) {
+      values.add(option.getValue());
+    }
+  }
+  return values;
+}
+
 Integer accountCount = 20;
 Integer contactsPerAccount = 2;
 Integer opportunitiesPerAccount = 3;
 Integer productCount = 5;
+Integer leadCount = 20;
+Integer taskCount = 40;
+Integer eventCount = 20;
 
 // Add the exact Salesforce usernames that should own generated records.
 // Usernames are globally unique and safer than matching users by name or email.
@@ -281,6 +296,51 @@ for (Integer accountIndex = 0; accountIndex < accounts.size(); accountIndex++) {
 }
 insert contacts;
 
+// Leads use the org's active, non-converted statuses.
+Set<String> activeLeadStatusValues = new Set<String>(
+  activePicklistValues(Lead.Status)
+);
+List<String> leadStatuses = new List<String>();
+for (LeadStatus status : [
+  SELECT MasterLabel
+  FROM LeadStatus
+  WHERE IsConverted = FALSE
+  ORDER BY SortOrder
+]) {
+  if (activeLeadStatusValues.contains(status.MasterLabel)) {
+    leadStatuses.add(status.MasterLabel);
+  }
+}
+if (leadStatuses.isEmpty()) {
+  throw new IllegalArgumentException(
+    'The org needs at least one active, non-converted Lead status.'
+  );
+}
+
+List<String> leadIndustries = activePicklistValues(Lead.Industry);
+List<Lead> leads = new List<Lead>();
+for (Integer i = 0; i < leadCount; i++) {
+  Lead lead = new Lead(
+    OwnerId = ownerIds[Math.mod(i, ownerIds.size())],
+    FirstName = 'Prospect' + String.valueOf(i + 1),
+    LastName = runKey + '-Lead',
+    Company = runKey + '-Prospect-Company-' + String.valueOf(i + 1),
+    Email = 'synthetic+' +
+      runKey.toLowerCase() +
+      '-lead-' +
+      String.valueOf(i + 1) +
+      '@example.invalid',
+    Status = leadStatuses[Math.mod(i, leadStatuses.size())],
+    Description = marker
+  );
+  if (!leadIndustries.isEmpty()) {
+    lead.Industry = leadIndustries[Math.mod(i, leadIndustries.size())];
+  }
+  populateCustomFields(lead, runKey, i + 1);
+  leads.add(lead);
+}
+insert leads;
+
 // Products and entries in the standard price book
 Pricebook2 standardPricebook = [
   SELECT Id, IsActive
@@ -377,6 +437,86 @@ for (Integer i = 0; i < opportunities.size(); i++) {
 }
 insert lineItems;
 
+// Tasks and Events are both Salesforce activities. Activities alternate
+// between generated Contacts and Leads; Lead activities intentionally omit
+// WhatId because Salesforce does not allow WhatId when WhoId is a Lead.
+List<String> taskSubjects = activePicklistValues(Task.Subject);
+if (taskSubjects.isEmpty()) {
+  taskSubjects.add('Synthetic follow-up');
+}
+List<String> taskStatuses = activePicklistValues(Task.Status);
+List<String> taskPriorities = activePicklistValues(Task.Priority);
+if (taskStatuses.isEmpty() || taskPriorities.isEmpty()) {
+  throw new IllegalArgumentException(
+    'The org needs active Task status and priority values.'
+  );
+}
+
+List<Task> tasks = new List<Task>();
+for (Integer i = 0; i < taskCount; i++) {
+  Task task = new Task(
+    OwnerId = ownerIds[Math.mod(i, ownerIds.size())],
+    Subject = taskSubjects[Math.mod(i, taskSubjects.size())],
+    Status = taskStatuses[Math.mod(i, taskStatuses.size())],
+    Priority = taskPriorities[Math.mod(i, taskPriorities.size())],
+    ActivityDate = Date.today().addDays(-14 + Math.mod(i, 45)),
+    Description = marker
+  );
+
+  Boolean useLead = !leads.isEmpty() &&
+    (contacts.isEmpty() || Math.mod(i, 2) == 1);
+  if (useLead) {
+    task.WhoId = leads[Math.mod(i, leads.size())].Id;
+  } else if (!contacts.isEmpty()) {
+    task.WhoId = contacts[Math.mod(i, contacts.size())].Id;
+    if (!opportunities.isEmpty()) {
+      task.WhatId = opportunities[Math.mod(i, opportunities.size())].Id;
+    }
+  } else if (!accounts.isEmpty()) {
+    task.WhatId = accounts[Math.mod(i, accounts.size())].Id;
+  }
+
+  populateCustomFields(task, runKey, i + 1);
+  tasks.add(task);
+}
+insert tasks;
+
+List<String> eventSubjects = activePicklistValues(Event.Subject);
+if (eventSubjects.isEmpty()) {
+  eventSubjects.add('Synthetic meeting');
+}
+
+List<Event> events = new List<Event>();
+for (Integer i = 0; i < eventCount; i++) {
+  Datetime startTime = Datetime.now()
+    .addDays(-10 + Math.mod(i, 30))
+    .addHours(9 + Math.mod(i, 8));
+  Event event = new Event(
+    OwnerId = ownerIds[Math.mod(i, ownerIds.size())],
+    Subject = eventSubjects[Math.mod(i, eventSubjects.size())],
+    StartDateTime = startTime,
+    EndDateTime = startTime.addMinutes(30 + (Math.mod(i, 3) * 30)),
+    Description = marker
+  );
+
+  Boolean useLead = !leads.isEmpty() &&
+    (contacts.isEmpty() || Math.mod(i, 2) == 1);
+  if (useLead) {
+    event.WhoId = leads[Math.mod(i, leads.size())].Id;
+  } else if (!contacts.isEmpty()) {
+    event.WhoId = contacts[Math.mod(i, contacts.size())].Id;
+    if (!opportunities.isEmpty()) {
+      event.WhatId = opportunities[Math.mod(i, opportunities.size())].Id;
+    }
+  } else if (!accounts.isEmpty()) {
+    event.WhatId = accounts[Math.mod(i, accounts.size())].Id;
+  }
+
+  populateCustomFields(event, runKey, i + 1);
+  events.add(event);
+}
+insert events;
+
 System.debug(LoggingLevel.WARN, 'Synthetic sales data created: ' + runKey);
 System.debug(
   LoggingLevel.WARN,
@@ -386,8 +526,14 @@ System.debug(
     ' contacts, ' +
     products.size() +
     ' products, ' +
+    leads.size() +
+    ' leads, ' +
     opportunities.size() +
-    ' opportunities, and ' +
+    ' opportunities, ' +
     lineItems.size() +
-    ' opportunity line items.'
+    ' opportunity line items, ' +
+    tasks.size() +
+    ' tasks, and ' +
+    events.size() +
+    ' events.'
 );

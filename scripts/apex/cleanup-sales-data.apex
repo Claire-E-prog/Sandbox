@@ -25,6 +25,51 @@ List<Opportunity> opportunities = [
 ];
 Set<Id> opportunityIds = new Map<Id, Opportunity>(opportunities).keySet();
 
+List<Contact> contacts = [
+    SELECT Id
+    FROM Contact
+    WHERE LastName LIKE :syntheticNamePattern
+];
+Set<Id> contactIds = new Map<Id, Contact>(contacts).keySet();
+
+List<Account> accounts = [
+    SELECT Id
+    FROM Account
+    WHERE Name LIKE :syntheticNamePattern
+];
+Set<Id> accountIds = new Map<Id, Account>(accounts).keySet();
+
+List<Lead> leads = [
+    SELECT Id
+    FROM Lead
+    WHERE LastName LIKE :syntheticNamePattern
+];
+Set<Id> leadIds = new Map<Id, Lead>(leads).keySet();
+
+Set<Id> activityWhoIds = new Set<Id>();
+activityWhoIds.addAll(contactIds);
+activityWhoIds.addAll(leadIds);
+Set<Id> activityWhatIds = new Set<Id>();
+activityWhatIds.addAll(accountIds);
+activityWhatIds.addAll(opportunityIds);
+
+List<Task> tasks = activityWhoIds.isEmpty() && activityWhatIds.isEmpty()
+    ? new List<Task>()
+    : [
+        SELECT Id
+        FROM Task
+        WHERE WhoId IN :activityWhoIds OR WhatId IN :activityWhatIds
+    ];
+List<Event> events = activityWhoIds.isEmpty() && activityWhatIds.isEmpty()
+    ? new List<Event>()
+    : [
+        SELECT Id
+        FROM Event
+        WHERE WhoId IN :activityWhoIds OR WhatId IN :activityWhatIds
+    ];
+delete tasks;
+delete events;
+
 List<OpportunityLineItem> lineItems = opportunityIds.isEmpty()
     ? new List<OpportunityLineItem>()
     : [
@@ -35,19 +80,9 @@ List<OpportunityLineItem> lineItems = opportunityIds.isEmpty()
 delete lineItems;
 delete opportunities;
 
-List<Contact> contacts = [
-    SELECT Id
-    FROM Contact
-    WHERE LastName LIKE :syntheticNamePattern
-];
 delete contacts;
-
-List<Account> accounts = [
-    SELECT Id
-    FROM Account
-    WHERE Name LIKE :syntheticNamePattern
-];
 delete accounts;
+delete leads;
 
 List<Product2> products = [
     SELECT Id
@@ -68,8 +103,11 @@ delete products;
 
 System.debug(LoggingLevel.WARN,
     'Synthetic sales data moved to the recycle bin: ' +
+    tasks.size() + ' tasks, ' +
+    events.size() + ' events, ' +
     lineItems.size() + ' line items, ' +
     opportunities.size() + ' opportunities, ' +
+    leads.size() + ' leads, ' +
     contacts.size() + ' contacts, ' +
     accounts.size() + ' accounts, ' +
     entries.size() + ' price book entries, and ' +
