@@ -94,7 +94,9 @@ Replace `my-org` with an authorized org alias.
 
 ## Suggested acceptance tests
 
-Test with a manager who owns records and has at least one active direct report:
+See [QUESTION_BANK.md](QUESTION_BANK.md) for a larger set of demonstration and
+acceptance-test prompts. Test with a manager who owns records and has at least
+one active direct report:
 
 - "Show my open opportunities closing in the next 30 days."
 - "What overdue tasks do my direct reports have?"
