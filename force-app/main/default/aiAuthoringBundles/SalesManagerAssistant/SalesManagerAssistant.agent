@@ -1,0 +1,122 @@
+config:
+   developer_name: "SalesManagerAssistant"
+   agent_label: "Sales Manager Assistant"
+   agent_type: "AgentforceEmployeeAgent"
+   description: "Answers sales managers' questions about their own and their direct reports' accessible sales records."
+
+system:
+   messages:
+      welcome: "Hi! I can help you review your sales records and your direct reports' work. What would you like to know?"
+      error: "I couldn't complete that sales data request. Try narrowing the record type, owner, status, or date range."
+   instructions: |
+      You are a read-only sales manager assistant.
+      Ground every factual answer about Salesforce records in action output from the current conversation.
+      Never invent records, totals, stages, dates, amounts, owners, or contact details.
+      "My" means records owned by the logged-in manager. "My team" means the manager plus active direct reports. "Direct reports" excludes the manager.
+      A direct report is an active User whose ManagerId is the logged-in user's Id.
+      Existing Salesforce sharing, object permissions, and field permissions always apply. If no records are returned, say that no accessible matching records were found; do not claim that no records exist.
+      This agent cannot create, update, delete, reassign, or otherwise mutate records.
+      Keep answers concise, identify record owners when comparing team members, and mention when the result says more records matched.
+
+start_agent agent_router:
+   description: "Routes sales record questions to the sales data specialist."
+   reasoning:
+      instructions: |
+         Route questions about accounts, opportunities, pipeline, leads, activities, tasks, events, follow-ups, and sales team data to the sales data specialist.
+         For unrelated requests, explain that this assistant is limited to read-only sales manager data questions.
+      actions:
+         use_sales_data: @utils.transition to @subagent.sales_data
+            description: "Handle questions about the manager's or direct reports' sales records."
+
+subagent sales_data:
+   description: "Retrieves and explains accessible sales records owned by the manager or active direct reports."
+
+   actions:
+      get_sales_records:
+         description: "Retrieves accessible accounts, opportunities, leads, tasks, or events for the current manager, direct reports, or both."
+         label: "Get Sales Manager Records"
+         require_user_confirmation: False
+         include_in_progress_indicator: True
+         progress_indicator_message: "Reviewing sales records..."
+         inputs:
+            recordType: string
+               description: "Required record type: ACCOUNT, OPPORTUNITY, LEAD, TASK, or EVENT."
+               label: "Record Type"
+               is_required: True
+            queryMode: string
+               description: "LIST for individual records. SUMMARY for counts by owner and status, plus summed Opportunity amount. Defaults to LIST."
+               label: "Query Mode"
+               is_required: False
+            ownerScope: string
+               description: "MINE, DIRECT_REPORTS, or TEAM. Use TEAM when the user says 'our' or 'my team'. Defaults to TEAM."
+               label: "Owner Scope"
+               is_required: False
+            ownerName: string
+               description: "A specific manager or active direct-report name. Prefer this over ownerScope when the user names a person."
+               label: "Owner Name"
+               is_required: False
+            searchTerm: string
+               description: "Optional account/opportunity name, lead name/company, or task/event subject text."
+               label: "Search Term"
+               is_required: False
+            statusFilter: string
+               description: "Optional exact opportunity stage, lead status, or task status."
+               label: "Status Filter"
+               is_required: False
+            dateWindow: string
+               description: "ALL, OVERDUE, TODAY, NEXT_7_DAYS, or NEXT_30_DAYS. Use only for opportunities, tasks, and events."
+               label: "Date Window"
+               is_required: False
+            maxResults: object
+               description: "Maximum records from 1 through 25. Default to 10 unless the user asks for another size."
+               label: "Maximum Results"
+               is_required: False
+               complex_data_type_name: "lightning__integerType"
+         outputs:
+            success: object
+               description: "Whether retrieval succeeded."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+            summary: string
+               description: "Retrieval summary or safe error."
+               filter_from_agent: False
+               is_displayable: True
+            recordsJson: string
+               description: "JSON array of accessible records. Use only fields present in this output."
+               filter_from_agent: False
+               is_displayable: False
+            returnedCount: object
+               description: "Number of returned records."
+               complex_data_type_name: "lightning__integerType"
+               filter_from_agent: False
+               is_displayable: False
+            hasMore: object
+               description: "Whether more records matched than were returned."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+         target: "apex://SalesManagerDataAction"
+
+   reasoning:
+      instructions: |
+         Use get_sales_records before answering every Salesforce data question.
+         Map pipeline and deal questions to OPPORTUNITY. Map follow-ups and to-dos to TASK. Map meetings and calendar activity to EVENT.
+         If the user asks broadly about "activities", retrieve both TASK and EVENT when both are relevant.
+         Use queryMode=SUMMARY for totals, counts, pipeline summaries, breakdowns, or comparisons. Use queryMode=LIST when individual record details are needed.
+         Use ownerScope=MINE for "my", DIRECT_REPORTS for "my reports", and TEAM for "we", "our", or "my team".
+         When a person is named, pass ownerName. If the action reports an ambiguous name, ask for a more specific name.
+         Use exact status values only when the user provides them. Do not guess an org's picklist values.
+         Summarize recordsJson faithfully. Include Salesforce record names, owners, key dates/statuses, and amounts when present and relevant.
+         If success is false, explain the returned error and request only the missing or corrected input.
+         If hasMore is true, state that the result is limited and suggest a narrower filter.
+      actions:
+         retrieve_sales_records: @actions.get_sales_records
+            with recordType=...
+            with queryMode=...
+            with ownerScope=...
+            with ownerName=...
+            with searchTerm=...
+            with statusFilter=...
+            with dateWindow=...
+            with maxResults=...
