@@ -4,10 +4,8 @@
 // Then configure owners and run:
 //   sf apex run --file scripts/apex/generate-sales-data.apex --target-org <alias>
 SyntheticDataConfig config = SyntheticDataConfig.manufacturing();
-config.ownerUsernames = new List<String>{
-  // 'sales.rep.one@example.com',
-  // 'sales.rep.two@example.com'
-};
+config.ownerUsernames = new List<String>{ UserInfo.getUserName() };
+// Replace the current username with the exact usernames for this run.
 
 // Override scenario settings here when a run needs different volumes.
 // config.accountCount = 20;

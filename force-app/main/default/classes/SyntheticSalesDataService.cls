@@ -23,12 +23,19 @@ public without sharing class SyntheticSalesDataService {
     }
     config.validate();
 
+    String randomSuffix = EncodingUtil.convertToHex(Crypto.generateAesKey(128))
+      .substring(0, 8);
     String runKey = String.isBlank(config.runKey)
-      ? 'SYNTH-' + Datetime.now().formatGmt('yyyyMMdd-HHmmssSSS')
+      ? 'SYNTH-' +
+        Datetime.now().formatGmt('yyyyMMdd-HHmmssSSS') +
+        '-' +
+        randomSuffix
       : config.runKey.trim();
-    if (!runKey.startsWith('SYNTH-')) {
+    if (
+      runKey.length() > 40 || !Pattern.matches('^SYNTH-[A-Za-z0-9-]+$', runKey)
+    ) {
       throw new SyntheticDataException(
-        'runKey must start with SYNTH- so cleanup can identify the records.'
+        'runKey must be 40 characters or fewer and match SYNTH-[A-Za-z0-9-]+.'
       );
     }
 
@@ -42,24 +49,24 @@ public without sharing class SyntheticSalesDataService {
     System.debug(
       LoggingLevel.WARN,
       'Synthetic run ' +
-      run.runKey +
-      ': ' +
-      run.accounts.size() +
-      ' accounts, ' +
-      run.contacts.size() +
-      ' contacts, ' +
-      run.leads.size() +
-      ' leads, ' +
-      run.products.size() +
-      ' products, ' +
-      run.opportunities.size() +
-      ' opportunities, ' +
-      run.lineItems.size() +
-      ' line items, ' +
-      run.tasks.size() +
-      ' tasks, and ' +
-      run.events.size() +
-      ' events.'
+        run.runKey +
+        ': ' +
+        run.accounts.size() +
+        ' accounts, ' +
+        run.contacts.size() +
+        ' contacts, ' +
+        run.leads.size() +
+        ' leads, ' +
+        run.products.size() +
+        ' products, ' +
+        run.opportunities.size() +
+        ' opportunities, ' +
+        run.lineItems.size() +
+        ' line items, ' +
+        run.tasks.size() +
+        ' tasks, and ' +
+        run.events.size() +
+        ' events.'
     );
   }
 
@@ -72,9 +79,7 @@ public without sharing class SyntheticSalesDataService {
       FROM Organization
       LIMIT 1
     ];
-    if (
-      !orgInfo.IsSandbox && orgInfo.OrganizationType != 'Developer Edition'
-    ) {
+    if (!orgInfo.IsSandbox && orgInfo.OrganizationType != 'Developer Edition') {
       throw new SyntheticDataException(
         'Synthetic data generation is allowed only in a sandbox or Developer Edition org.'
       );

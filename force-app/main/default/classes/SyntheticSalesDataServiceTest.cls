@@ -3,6 +3,7 @@ private class SyntheticSalesDataServiceTest {
   @IsTest
   static void generatesManufacturingScenario() {
     SyntheticDataConfig config = smallConfig();
+    update new Pricebook2(Id = Test.getStandardPricebookId(), IsActive = true);
 
     Test.startTest();
     SyntheticDataRun run = SyntheticSalesDataService.generateAll(config);
@@ -55,7 +56,8 @@ private class SyntheticSalesDataServiceTest {
       SELECT Username
       FROM User
       WHERE Id = :UserInfo.getUserId()
-    ].Username;
+    ]
+    .Username;
     config.ownerUsernames = new List<String>{ username, username };
 
     try {
@@ -73,7 +75,8 @@ private class SyntheticSalesDataServiceTest {
         SELECT Username
         FROM User
         WHERE Id = :UserInfo.getUserId()
-      ].Username
+      ]
+      .Username
     };
     config.accountCount = 2;
     config.contactsPerAccount = 1;

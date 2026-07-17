@@ -71,16 +71,8 @@ public class SyntheticDataConfig {
   public Integer maximumSalesCycleDays = 150;
 
   public List<ProductDefinition> products = new List<ProductDefinition>{
-    new ProductDefinition(
-      'Industrial Servo Controller',
-      'MFG-SERVO-100',
-      4800
-    ),
-    new ProductDefinition(
-      'High-Torque Conveyor Drive',
-      'MFG-DRIVE-220',
-      7250
-    ),
+    new ProductDefinition('Industrial Servo Controller', 'MFG-SERVO-100', 4800),
+    new ProductDefinition('High-Torque Conveyor Drive', 'MFG-DRIVE-220', 7250),
     new ProductDefinition(
       'Predictive Maintenance Sensor Kit',
       'MFG-SENSOR-310',
@@ -91,11 +83,7 @@ public class SyntheticDataConfig {
       'MFG-INSPECT-400',
       28500
     ),
-    new ProductDefinition(
-      'Hydraulic Pump Assembly',
-      'MFG-PUMP-510',
-      3900
-    )
+    new ProductDefinition('Hydraulic Pump Assembly', 'MFG-PUMP-510', 3900)
   };
 
   public static SyntheticDataConfig manufacturing() {
@@ -103,12 +91,18 @@ public class SyntheticDataConfig {
   }
 
   public void validate() {
-    if (ownerUsernames.isEmpty()) {
+    if (ownerUsernames == null || ownerUsernames.isEmpty()) {
       throw new SyntheticDataException(
         'Add at least one Salesforce username to ownerUsernames.'
       );
     }
     if (
+      accountCount == null ||
+      contactsPerAccount == null ||
+      opportunitiesPerAccount == null ||
+      leadCount == null ||
+      taskCount == null ||
+      eventCount == null ||
       accountCount < 0 ||
       contactsPerAccount < 0 ||
       opportunitiesPerAccount < 0 ||
@@ -116,14 +110,36 @@ public class SyntheticDataConfig {
       taskCount < 0 ||
       eventCount < 0
     ) {
-      throw new SyntheticDataException('Record counts cannot be negative.');
-    }
-    if (companyNames.isEmpty() || products.isEmpty()) {
       throw new SyntheticDataException(
-        'The scenario needs at least one company and product definition.'
+        'Record counts are required and cannot be negative.'
       );
     }
     if (
+      companyNames == null ||
+      cities == null ||
+      preferredIndustries == null ||
+      contactTitles == null ||
+      opportunityThemes == null ||
+      preferredTaskSubjects == null ||
+      preferredEventSubjects == null ||
+      products == null
+    ) {
+      throw new SyntheticDataException('Scenario collections cannot be null.');
+    }
+    if ((accountCount > 0 || leadCount > 0) && companyNames.isEmpty()) {
+      throw new SyntheticDataException(
+        'Account and Lead generation requires a company name.'
+      );
+    }
+    if (
+      minimumAnnualRevenue == null ||
+      annualRevenueStep == null ||
+      minimumEmployees == null ||
+      employeeStep == null ||
+      minimumOpportunityQuantity == null ||
+      maximumOpportunityQuantity == null ||
+      minimumSalesCycleDays == null ||
+      maximumSalesCycleDays == null ||
       minimumOpportunityQuantity < 1 ||
       maximumOpportunityQuantity < minimumOpportunityQuantity
     ) {
@@ -133,6 +149,39 @@ public class SyntheticDataConfig {
     }
     if (maximumSalesCycleDays < minimumSalesCycleDays) {
       throw new SyntheticDataException('Sales cycle range is invalid.');
+    }
+
+    for (ProductDefinition product : products) {
+      if (
+        product == null ||
+        String.isBlank(product.name) ||
+        String.isBlank(product.productCode) ||
+        product.name.length() > 200 ||
+        product.productCode.length() > 200 ||
+        product.unitPrice == null ||
+        product.unitPrice <= 0
+      ) {
+        throw new SyntheticDataException(
+          'Every product needs a name and product code of 200 characters or fewer, plus a positive unit price.'
+        );
+      }
+    }
+
+    Integer opportunityCount = accountCount * opportunitiesPerAccount;
+    Integer estimatedRows =
+      accountCount +
+      (accountCount * contactsPerAccount) +
+      leadCount +
+      (products.size() * 2) +
+      (opportunityCount * 2) +
+      taskCount +
+      eventCount;
+    if (estimatedRows > 9000) {
+      throw new SyntheticDataException(
+        'This synchronous run would create approximately ' +
+          estimatedRows +
+          ' rows. Keep it at or below 9,000 or use Batch Apex.'
+      );
     }
   }
 

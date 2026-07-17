@@ -1,8 +1,5 @@
 public without sharing class SyntheticLeadFactory {
-  public static void create(
-    SyntheticDataConfig config,
-    SyntheticDataRun run
-  ) {
+  public static void create(SyntheticDataConfig config, SyntheticDataRun run) {
     Set<String> activeStatusValues = new Set<String>(
       SyntheticSchemaValueFactory.activePicklistValues(Lead.Status)
     );
@@ -47,11 +44,7 @@ public without sharing class SyntheticLeadFactory {
       if (!industries.isEmpty()) {
         lead.Industry = industries[Math.mod(i, industries.size())];
       }
-      SyntheticSchemaValueFactory.populateCustomFields(
-        lead,
-        run.runKey,
-        i + 1
-      );
+      SyntheticSchemaValueFactory.populateCustomFields(lead, run.runKey, i + 1);
       run.leads.add(lead);
     }
     insert run.leads;

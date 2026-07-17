@@ -30,9 +30,7 @@ public class SyntheticOwnerResolver {
 
     List<Id> ownerIds = new List<Id>();
     for (String username : ownerUsernames) {
-      User owner = usersByNormalizedUsername.get(
-        username.trim().toLowerCase()
-      );
+      User owner = usersByNormalizedUsername.get(username.trim().toLowerCase());
       if (owner == null) {
         throw new SyntheticDataException(
           'No Salesforce user found for username: ' + username

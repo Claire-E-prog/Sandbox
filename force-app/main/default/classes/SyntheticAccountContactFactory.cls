@@ -1,8 +1,5 @@
 public without sharing class SyntheticAccountContactFactory {
-  public static void create(
-    SyntheticDataConfig config,
-    SyntheticDataRun run
-  ) {
+  public static void create(SyntheticDataConfig config, SyntheticDataRun run) {
     List<String> industries = SyntheticSchemaValueFactory.preferredActivePicklistValues(
       Account.Industry,
       config.preferredIndustries
@@ -51,9 +48,7 @@ public without sharing class SyntheticAccountContactFactory {
         sequence++;
         Contact contact = new Contact(
           AccountId = account.Id,
-          OwnerId = run.ownerIds[
-            Math.mod(sequence - 1, run.ownerIds.size())
-          ],
+          OwnerId = run.ownerIds[Math.mod(sequence - 1, run.ownerIds.size())],
           FirstName = 'Manufacturing',
           LastName = run.runKey + '-Contact-' + String.valueOf(sequence),
           Email = 'synthetic+' +

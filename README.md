@@ -64,7 +64,9 @@ Deploy the classes:
 sf project deploy start --source-dir force-app --target-org <org-alias>
 ```
 
-Add exact Salesforce usernames to the selected entry script, then execute it:
+Entry scripts default to the current user. Replace `UserInfo.getUserName()` with
+exact Salesforce usernames when records should be distributed to a team. Ensure
+the standard price book is active, then execute the script:
 
 ```bash
 sf apex run \
@@ -100,7 +102,12 @@ SyntheticSalesDataCleanup.cleanupRun('SYNTH-20260717-001122123');
 ```
 
 Generated names and product codes start with a unique `SYNTH-...` run key.
-Cleanup moves records to the recycle bin.
+Cleanup moves records to the recycle bin. Per-run cleanup validates the exact
+run marker, and preserves products that have subsequently been added to another
+price book. Salesforce does not allow API deletion of products used by an
+Opportunity, so generated products and their standard price book entries are
+deactivated and their product codes are archived. Synchronous cleanup refuses
+plans above 9,000 rows; use per-run or Batch Apex cleanup for larger datasets.
 
 ## Custom schema behavior
 
@@ -108,7 +115,8 @@ Factories inspect writable custom fields at runtime. Active custom picklist
 values and common scalar field types receive deterministic values. Formula,
 auto-number, defaulted, and read-only fields are left to Salesforce. Optional
 unsupported fields such as lookups are logged and skipped; required unsupported
-fields stop and roll back a complete run.
+fields stop and roll back a complete run. Dependent custom picklists are not
+guessed; configure them explicitly in the relevant factory.
 
 Validation rules, dependent picklists, flows, triggers, and semantic
 requirements cannot be inferred reliably from describe metadata. Add explicit

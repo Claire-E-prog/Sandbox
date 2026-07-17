@@ -1,8 +1,10 @@
 public without sharing class SyntheticProductFactory {
-  public static void create(
-    SyntheticDataConfig config,
-    SyntheticDataRun run
-  ) {
+  public static void create(SyntheticDataConfig config, SyntheticDataRun run) {
+    if (config.products == null || config.products.isEmpty()) {
+      throw new SyntheticDataException(
+        'Product generation requires at least one product definition.'
+      );
+    }
     Pricebook2 standardPricebook;
     if (Test.isRunningTest()) {
       Id standardPricebookId = Test.getStandardPricebookId();
@@ -20,8 +22,9 @@ public without sharing class SyntheticProductFactory {
       ];
     }
     if (!standardPricebook.IsActive) {
-      standardPricebook.IsActive = true;
-      update standardPricebook;
+      throw new SyntheticDataException(
+        'Activate the standard price book before generating products.'
+      );
     }
     run.standardPricebookId = standardPricebook.Id;
 

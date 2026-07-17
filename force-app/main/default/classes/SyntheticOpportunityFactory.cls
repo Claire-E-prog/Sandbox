@@ -1,8 +1,14 @@
 public without sharing class SyntheticOpportunityFactory {
-  public static void create(
-    SyntheticDataConfig config,
-    SyntheticDataRun run
-  ) {
+  public static void create(SyntheticDataConfig config, SyntheticDataRun run) {
+    if (run.accounts.isEmpty() || config.opportunitiesPerAccount == 0) {
+      return;
+    }
+    if (run.standardPricebookId == null || run.pricebookEntries.isEmpty()) {
+      throw new SyntheticDataException(
+        'Opportunity generation requires SyntheticProductFactory to run first.'
+      );
+    }
+
     List<String> openStages = new List<String>();
     List<String> wonStages = new List<String>();
     List<String> lostStages = new List<String>();
@@ -20,11 +26,7 @@ public without sharing class SyntheticOpportunityFactory {
         lostStages.add(stage.ApiName);
       }
     }
-    if (
-      !run.accounts.isEmpty() &&
-      config.opportunitiesPerAccount > 0 &&
-      openStages.isEmpty()
-    ) {
+    if (openStages.isEmpty()) {
       throw new SyntheticDataException(
         'The org needs at least one active open Opportunity stage.'
       );
@@ -32,7 +34,9 @@ public without sharing class SyntheticOpportunityFactory {
 
     Date today = Date.today();
     Integer salesCycleRange =
-      config.maximumSalesCycleDays - config.minimumSalesCycleDays + 1;
+      config.maximumSalesCycleDays -
+      config.minimumSalesCycleDays +
+      1;
     Integer sequence = 0;
     for (Account account : run.accounts) {
       for (
@@ -52,8 +56,7 @@ public without sharing class SyntheticOpportunityFactory {
         } else {
           stageName = openStages[Math.mod(sequence, openStages.size())];
           closeDate = today.addDays(
-            config.minimumSalesCycleDays +
-            Math.mod(sequence, salesCycleRange)
+            config.minimumSalesCycleDays + Math.mod(sequence, salesCycleRange)
           );
         }
 

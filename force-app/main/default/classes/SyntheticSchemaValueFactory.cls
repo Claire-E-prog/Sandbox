@@ -10,9 +10,7 @@ public class SyntheticSchemaValueFactory {
       .getMap();
 
     for (String fieldApiName : fields.keySet()) {
-      Schema.DescribeFieldResult field = fields
-        .get(fieldApiName)
-        .getDescribe();
+      Schema.DescribeFieldResult field = fields.get(fieldApiName).getDescribe();
       if (
         !field.isCustom() ||
         !field.isCreateable() ||
@@ -24,26 +22,31 @@ public class SyntheticSchemaValueFactory {
         continue;
       }
 
-      Object generatedValue = generateValue(field, fieldApiName, runKey, sequence);
+      Object generatedValue = generateValue(
+        field,
+        fieldApiName,
+        runKey,
+        sequence
+      );
       if (generatedValue != null) {
         record.put(fieldApiName, generatedValue);
       } else if (!field.isNillable()) {
         throw new SyntheticDataException(
           'Cannot synthesize required custom field ' +
-          record.getSObjectType().getDescribe().getName() +
-          '.' +
-          fieldApiName +
-          ' (' +
-          String.valueOf(field.getType()) +
-          '). Add an org-specific value in the relevant factory.'
+            record.getSObjectType().getDescribe().getName() +
+            '.' +
+            fieldApiName +
+            ' (' +
+            String.valueOf(field.getType()) +
+            '). Add an org-specific value in the relevant factory.'
         );
       } else if (sequence == 1) {
         System.debug(
           LoggingLevel.WARN,
           'Skipped unsupported optional custom field ' +
-          record.getSObjectType().getDescribe().getName() +
-          '.' +
-          fieldApiName
+            record.getSObjectType().getDescribe().getName() +
+            '.' +
+            fieldApiName
         );
       }
     }
@@ -54,9 +57,7 @@ public class SyntheticSchemaValueFactory {
   ) {
     List<String> values = new List<String>();
     for (
-      Schema.PicklistEntry option : fieldToken
-        .getDescribe()
-        .getPicklistValues()
+      Schema.PicklistEntry option : fieldToken.getDescribe().getPicklistValues()
     ) {
       if (option.isActive()) {
         values.add(option.getValue());
@@ -94,6 +95,17 @@ public class SyntheticSchemaValueFactory {
     Integer sequence
   ) {
     Schema.DisplayType fieldType = field.getType();
+    if (field.isDependentPicklist()) {
+      return null;
+    }
+    if (
+      (field.isUnique() || field.isExternalId()) &&
+      fieldType != Schema.DisplayType.String &&
+      fieldType != Schema.DisplayType.Email &&
+      fieldType != Schema.DisplayType.Url
+    ) {
+      return null;
+    }
     if (
       fieldType == Schema.DisplayType.Picklist ||
       fieldType == Schema.DisplayType.MultiPicklist
@@ -134,13 +146,20 @@ public class SyntheticSchemaValueFactory {
       return Decimal.valueOf(sequence);
     }
     if (fieldType == Schema.DisplayType.Email) {
-      return 'synthetic+' + String.valueOf(sequence) + '@example.invalid';
+      return 'synthetic+' +
+        runKey.toLowerCase() +
+        '-' +
+        String.valueOf(sequence) +
+        '@example.invalid';
     }
     if (fieldType == Schema.DisplayType.Phone) {
       return '+1 555 010 ' + String.valueOf(1000 + Math.mod(sequence, 9000));
     }
     if (fieldType == Schema.DisplayType.Url) {
-      return 'https://example.invalid/synthetic/' + String.valueOf(sequence);
+      return 'https://example.invalid/' +
+        runKey.toLowerCase() +
+        '/' +
+        String.valueOf(sequence);
     }
     if (
       fieldType == Schema.DisplayType.String ||
@@ -148,10 +167,30 @@ public class SyntheticSchemaValueFactory {
       fieldType == Schema.DisplayType.EncryptedString ||
       fieldType == Schema.DisplayType.ComboBox
     ) {
+      if (field.isUnique() || field.isExternalId()) {
+        if (field.getLength() < 8) {
+          return null;
+        }
+        String uniqueValue = EncodingUtil.convertToHex(
+          Crypto.generateDigest(
+            'SHA-256',
+            Blob.valueOf(runKey + '-' + sequence + '-' + fieldApiName)
+          )
+        );
+        return field.getLength() > 0 &&
+          uniqueValue.length() > field.getLength()
+          ? uniqueValue.substring(0, field.getLength())
+          : uniqueValue;
+      }
       String textValue =
-        String.valueOf(sequence) + '-' + fieldApiName + '-' + runKey;
+        runKey +
+        '-' +
+        String.valueOf(sequence) +
+        '-' +
+        fieldApiName;
       Integer maximumLength = field.getLength();
-      return maximumLength > 0 && textValue.length() > maximumLength
+      return maximumLength > 0 &&
+        textValue.length() > maximumLength
         ? textValue.substring(0, maximumLength)
         : textValue;
     }

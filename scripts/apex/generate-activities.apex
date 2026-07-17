@@ -1,7 +1,5 @@
 SyntheticDataConfig config = SyntheticDataConfig.manufacturing();
-config.ownerUsernames = new List<String>{
-  // 'sales.rep.one@example.com'
-};
+config.ownerUsernames = new List<String>{ UserInfo.getUserName() };
 
 // Activities need related records. Keep these low while debugging.
 config.accountCount = 2;

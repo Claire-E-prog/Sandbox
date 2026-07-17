@@ -1,10 +1,8 @@
 public without sharing class SyntheticActivityFactory {
-  public static void create(
-    SyntheticDataConfig config,
-    SyntheticDataRun run
-  ) {
+  public static void create(SyntheticDataConfig config, SyntheticDataRun run) {
     if (
-      (config.taskCount > 0 || config.eventCount > 0) &&
+      (config.taskCount > 0 ||
+      config.eventCount > 0) &&
       run.accounts.isEmpty() &&
       run.contacts.isEmpty() &&
       run.leads.isEmpty()
@@ -35,9 +33,7 @@ public without sharing class SyntheticActivityFactory {
     List<String> priorities = SyntheticSchemaValueFactory.activePicklistValues(
       Task.Priority
     );
-    if (
-      config.taskCount > 0 && (statuses.isEmpty() || priorities.isEmpty())
-    ) {
+    if (config.taskCount > 0 && (statuses.isEmpty() || priorities.isEmpty())) {
       throw new SyntheticDataException(
         'The org needs active Task status and priority values.'
       );
@@ -53,11 +49,7 @@ public without sharing class SyntheticActivityFactory {
         Description = run.marker()
       );
       relateActivity(task, run, i);
-      SyntheticSchemaValueFactory.populateCustomFields(
-        task,
-        run.runKey,
-        i + 1
-      );
+      SyntheticSchemaValueFactory.populateCustomFields(task, run.runKey, i + 1);
       run.tasks.add(task);
     }
     insert run.tasks;
@@ -102,13 +94,11 @@ public without sharing class SyntheticActivityFactory {
     SyntheticDataRun run,
     Integer sequence
   ) {
-    Boolean useLead = !run.leads.isEmpty() &&
+    Boolean useLead =
+      !run.leads.isEmpty() &&
       (run.contacts.isEmpty() || Math.mod(sequence, 2) == 1);
     if (useLead) {
-      activity.put(
-        'WhoId',
-        run.leads[Math.mod(sequence, run.leads.size())].Id
-      );
+      activity.put('WhoId', run.leads[Math.mod(sequence, run.leads.size())].Id);
       return;
     }
     if (!run.contacts.isEmpty()) {

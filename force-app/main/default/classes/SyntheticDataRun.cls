@@ -9,8 +9,7 @@ public class SyntheticDataRun {
   public List<Product2> products = new List<Product2>();
   public List<PricebookEntry> pricebookEntries = new List<PricebookEntry>();
   public List<Opportunity> opportunities = new List<Opportunity>();
-  public List<OpportunityLineItem> lineItems =
-    new List<OpportunityLineItem>();
+  public List<OpportunityLineItem> lineItems = new List<OpportunityLineItem>();
   public List<Task> tasks = new List<Task>();
   public List<Event> events = new List<Event>();
 
