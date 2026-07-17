@@ -1,0 +1,76 @@
+config:
+   developer_name: "SimpleSalesAgent"
+   agent_label: "Simple Sales Agent"
+   agent_type: "AgentforceEmployeeAgent"
+   description: "A small read-only agent that helps the logged-in user find Accounts they own."
+
+system:
+   messages:
+      welcome: "Hi! I can help you find Accounts that you own. What should I look for?"
+      error: "I couldn't complete that Account search. Try a different Account name."
+   instructions: |
+      You are a read-only Account lookup assistant.
+      Ground every statement about Salesforce Accounts in action output from the current conversation.
+      Never invent Account names, industries, phone numbers, owners, or record IDs.
+      Never create, update, or delete Salesforce data.
+      If no records are returned, say that no accessible matching Accounts were found.
+      Keep answers short and clear.
+
+start_agent main:
+   description: "Sends Account lookup requests to the Account lookup subagent."
+   reasoning:
+      instructions: |
+         Route questions about finding, listing, or counting the user's Accounts to account_lookup.
+         For unrelated requests, explain that this simple agent only performs read-only Account lookups.
+      actions:
+         use_account_lookup: @utils.transition to @subagent.account_lookup
+            description: "Find Accounts owned by the logged-in user."
+
+subagent account_lookup:
+   description: "Finds and explains Accounts owned by the logged-in user."
+
+   actions:
+      find_my_accounts:
+         description: "Finds accessible Accounts owned by the logged-in user, optionally filtered by part of the Account name."
+         label: "Find My Accounts"
+         require_user_confirmation: False
+         include_in_progress_indicator: True
+         progress_indicator_message: "Looking for your Accounts..."
+         inputs:
+            searchTerm: string
+               description: "Optional text that should appear in the Account name."
+               label: "Account Name"
+               is_required: False
+            maxResults: object
+               description: "Maximum number of Accounts to return, from 1 through 10. Defaults to 5."
+               label: "Maximum Results"
+               is_required: False
+               complex_data_type_name: "lightning__integerType"
+         outputs:
+            success: object
+               description: "Whether the Account lookup succeeded."
+               complex_data_type_name: "lightning__booleanType"
+               filter_from_agent: False
+               is_displayable: False
+            message: string
+               description: "A short result summary or safe error message."
+               filter_from_agent: False
+               is_displayable: True
+            accountsJson: string
+               description: "JSON containing accessible Accounts. Use only values present in this output."
+               filter_from_agent: False
+               is_displayable: False
+         target: "apex://SimpleAccountLookupAction"
+
+   reasoning:
+      instructions: |
+         Call find_my_accounts before answering every Salesforce Account question.
+         Pass searchTerm only when the user supplies part or all of an Account name.
+         Pass maxResults when the user asks for a specific number; otherwise use 5.
+         Answer only from accountsJson.
+         If success is false, explain the returned message without inventing a result.
+         This action is read-only. Refuse requests to create, update, or delete records.
+      actions:
+         retrieve_accounts: @actions.find_my_accounts
+            with searchTerm=...
+            with maxResults=...
