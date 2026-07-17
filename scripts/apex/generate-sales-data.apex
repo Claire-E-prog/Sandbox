@@ -123,6 +123,13 @@ Integer contactsPerAccount = 2;
 Integer opportunitiesPerAccount = 3;
 Integer productCount = 5;
 
+// Add the exact Salesforce usernames that should own generated records.
+// Usernames are globally unique and safer than matching users by name or email.
+List<String> ownerUsernames = new List<String>{
+  // 'sales.rep.one@example.com',
+  // 'sales.rep.two@example.com'
+};
+
 // Developer Edition orgs are not reported as sandboxes, so allow both.
 Organization orgInfo = [
   SELECT IsSandbox, OrganizationType
@@ -133,6 +140,57 @@ if (!orgInfo.IsSandbox && orgInfo.OrganizationType != 'Developer Edition') {
   throw new IllegalArgumentException(
     'Synthetic data generation is allowed only in a sandbox or Developer Edition org.'
   );
+}
+
+if (ownerUsernames.isEmpty()) {
+  throw new IllegalArgumentException(
+    'Add at least one Salesforce username to ownerUsernames before running.'
+  );
+}
+
+Set<String> requestedUsernames = new Set<String>();
+Set<String> normalizedUsernames = new Set<String>();
+for (String username : ownerUsernames) {
+  if (String.isBlank(username)) {
+    throw new IllegalArgumentException(
+      'ownerUsernames cannot contain a blank value.'
+    );
+  }
+
+  String trimmedUsername = username.trim();
+  String normalizedUsername = trimmedUsername.toLowerCase();
+  if (normalizedUsernames.contains(normalizedUsername)) {
+    throw new IllegalArgumentException(
+      'Duplicate username in ownerUsernames: ' + trimmedUsername
+    );
+  }
+  requestedUsernames.add(trimmedUsername);
+  normalizedUsernames.add(normalizedUsername);
+}
+
+Map<String, User> usersByNormalizedUsername = new Map<String, User>();
+for (User owner : [
+  SELECT Id, Username, IsActive
+  FROM User
+  WHERE Username IN :requestedUsernames
+]) {
+  usersByNormalizedUsername.put(owner.Username.toLowerCase(), owner);
+}
+
+List<Id> ownerIds = new List<Id>();
+for (String username : ownerUsernames) {
+  User owner = usersByNormalizedUsername.get(username.trim().toLowerCase());
+  if (owner == null) {
+    throw new IllegalArgumentException(
+      'No Salesforce user found for username: ' + username
+    );
+  }
+  if (!owner.IsActive) {
+    throw new IllegalArgumentException(
+      'Synthetic data owner is inactive: ' + username
+    );
+  }
+  ownerIds.add(owner.Id);
 }
 
 String runKey = 'SYNTH-' + Datetime.now().formatGmt('yyyyMMdd-HHmmssSSS');
@@ -183,6 +241,7 @@ for (
 for (Integer i = 0; i < accountCount; i++) {
   Account account = new Account(
     Name = runKey + '-Account-' + String.valueOf(i + 1),
+    OwnerId = ownerIds[Math.mod(i, ownerIds.size())],
     BillingCity = 'Demo City ' + String.valueOf(Math.mod(i, 5) + 1),
     BillingCountry = 'United States',
     NumberOfEmployees = 25 + (i * 17),
@@ -206,6 +265,7 @@ for (Integer accountIndex = 0; accountIndex < accounts.size(); accountIndex++) {
     Integer sequence = (accountIndex * contactsPerAccount) + contactIndex + 1;
     Contact contact = new Contact(
       AccountId = accounts[accountIndex].Id,
+      OwnerId = ownerIds[Math.mod(sequence - 1, ownerIds.size())],
       FirstName = 'Demo' + String.valueOf(sequence),
       LastName = runKey + '-Contact',
       Email = 'synthetic+' +
@@ -288,6 +348,7 @@ for (Integer accountIndex = 0; accountIndex < accounts.size(); accountIndex++) {
 
     Opportunity opportunity = new Opportunity(
       AccountId = accounts[accountIndex].Id,
+      OwnerId = ownerIds[Math.mod(sequence, ownerIds.size())],
       Name = runKey + '-Opportunity-' + String.valueOf(sequence + 1),
       StageName = stageName,
       CloseDate = closeDate,

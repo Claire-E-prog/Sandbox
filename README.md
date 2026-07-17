@@ -13,6 +13,12 @@ remove a sample sales pipeline built from standard Salesforce objects:
 
 Authenticate a Developer Edition or sandbox org, then run:
 
+1. Add the exact Salesforce usernames of the intended record owners to the
+   `ownerUsernames` list near the top of `generate-sales-data.apex`.
+2. Ensure the running user can assign records to those users and that each
+   owner is active and licensed to own Accounts, Contacts, and Opportunities.
+3. Execute the generator:
+
 ```bash
 sf apex run \
   --file scripts/apex/generate-sales-data.apex \
@@ -30,7 +36,10 @@ value can be added safely.
 
 All record names receive a unique `SYNTH-...` run key, and execution is refused
 outside Developer Edition and sandbox orgs. Edit the four count variables at
-the top of the file to change the data volume.
+the top of the file to change the data volume. Accounts, Contacts, and
+Opportunities are assigned across the configured users in round-robin order.
+The script stops before inserting data if a username is missing, duplicated, or
+belongs to an inactive user.
 
 Remove all generated records with:
 
